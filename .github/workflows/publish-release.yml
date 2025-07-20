@@ -1,0 +1,31 @@
+name: Publish Release to Pages
+
+on:
+  release:
+    types: [published]   # 每次 Release 发布时触发
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # 下载刚发布的 Release 中的 index.html
+      - name: Download Release Asset
+        id: download
+        uses: robinraju/release-downloader@v1
+        with:
+          repository: ${{ github.repository }}
+          tag: ${{ github.event.release.tag_name }}
+          fileName: "index.html"
+          out-file-path: "./"
+
+      # 把 index.html 推到 gh-pages 分支
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./
+          publish_branch: gh-pages
+          force_orphan: true   # 每次清空历史，只保留最新
