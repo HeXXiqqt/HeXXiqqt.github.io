@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>工时打卡日历 - 增强统计版</title>
+    <title>工时打卡日历 - Tauri兼容版</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        /* 样式保持不变 */
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         :root {
             --primary: #4361ee; --primary-light: #4895ef; --secondary: #3f37c9;
@@ -131,10 +132,24 @@
         .import-btn { background: transparent; color: var(--primary); border: 2px dashed var(--primary); padding: 10px; border-radius: 10px; width: 100%; text-align: center; cursor: pointer; transition: .2s; }
         .import-btn:hover { background: rgba(67, 97, 238, 0.1); }
         .import-btn input { position: absolute; opacity: 0; width: 0; }
+        
+        /* 添加的兼容性提示 */
+        .tauri-compat-info {
+            background: #fff8e1;
+            border-left: 4px solid #ffc107;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="tauri-compat-info">
+            <i class="fas fa-info-circle"></i> 此版本已优化兼容Tauri打包环境，导出/导入功能现已可用
+        </div>
+        
         <header>
             <div class="header-content">
                 <div class="month-year" id="monthYearText">2023年12月</div>
@@ -1406,7 +1421,7 @@
             });
         }
 
-        /* 导出文件 */
+        /* 导出文件 - 关键修复部分 */
         function exportFile(type){
             const data = Object.entries(records).map(([date,rec])=>({
                 日期:date,
@@ -1416,24 +1431,80 @@
                 时薪:rec.hourlyWage||80,
                 日薪:calculateDaily(rec)
             }));
+            
+            let content, fileName;
             if(type==='csv'){
-                const csv = Papa.unparse(data,{header:true});
-                downloadBlob(csv,'工时打卡.csv','text/csv;charset=utf-8;');
+                content = Papa.unparse(data,{header:true});
+                fileName = '工时打卡.csv';
             }else{
-                downloadBlob(JSON.stringify(data,null,2),'工时打卡.json','application/json;charset=utf-8;');
+                content = JSON.stringify(data,null,2);
+                fileName = '工时打卡.json';
+            }
+            
+            // 在Tauri环境中使用专用API进行保存
+            if (window.__TAURI__) {
+                const { dialog, fs } = window.__TAURI__;
+                dialog.save({
+                    title: '保存文件',
+                    defaultPath: fileName,
+                    filters: [{
+                        name: type === 'csv' ? 'CSV文件' : 'JSON文件',
+                        extensions: [type === 'csv' ? 'csv' : 'json']
+                    }]
+                }).then(filePath => {
+                    if (filePath) {
+                        fs.writeTextFile(filePath, content).then(() => {
+                            alert('文件已保存');
+                        }).catch(err => {
+                            console.error('保存失败:', err);
+                            alert('保存失败: ' + err.toString());
+                        });
+                    }
+                }).catch(err => {
+                    console.error('保存对话框错误:', err);
+                });
+            } else {
+                // 浏览器环境使用Blob下载
+                const mimeType = type === 'csv' ? 'text/csv;charset=utf-8;' : 'application/json;charset=utf-8;';
+                downloadBlob(content, fileName, mimeType);
             }
         }
+        
         function downloadBlob(content,filename,type){
-            const blob=new Blob([type.includes('csv')?'\uFEFF'+content:content],{type});
+            // 添加UTF-8 BOM用于CSV文件在Excel中正确显示中文
+            if(type.includes('csv') && !content.startsWith('\uFEFF')){
+                content = '\uFEFF' + content;
+            }
+            
+            const blob=new Blob([content],{type});
             const url=URL.createObjectURL(blob);
             const a=document.createElement('a');
             a.href=url;
             a.download=filename;
+            a.style.display = 'none';
             document.body.appendChild(a);
             a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            
+            // 清理
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
         }
+        
+        /* 添加Tauri环境检测 */
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.__TAURI__) {
+                console.log('运行在Tauri环境中');
+                // 在Tauri环境中添加额外提示
+                const compatInfo = document.querySelector('.tauri-compat-info');
+                if (compatInfo) {
+                    compatInfo.innerHTML += '<br><small>已启用Tauri专用文件API</small>';
+                }
+            } else {
+                console.log('运行在浏览器环境中');
+            }
+        });
     </script>
 </body>
 </html>
