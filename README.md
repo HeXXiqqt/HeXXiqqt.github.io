@@ -1,4 +1,4 @@
-WorkTime-Record.github.io
+https://hexxiqqt.github.io/WorkTime-Record.github.io/
 
 
 一个纯html的工时打卡记录网页应用。
@@ -14,4 +14,4 @@ WorkTime-Record.github.io
 
 5.提供对打卡数据的导出，支持csv格式，json格式。同时支持将导出的json导入回网页应用。
 
-6。。。。。。。。。
+6.更多。。。。。
