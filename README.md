@@ -1,5 +1,3 @@
-https://hexxiqqt.github.io/WorkTime-Record.github.io/
-
 
 一个纯html的工时打卡记录网页应用。
 包含如下功能：
